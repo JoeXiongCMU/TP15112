@@ -9,7 +9,7 @@ import threading
 from queue import Queue
 
 HOST = "" # put your IP address here if playing on multiple computers
-PORT = 50010
+PORT = 50012
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -87,7 +87,8 @@ def distance(x1,y1,x2,y2):
   return ((x1-x2)**2 + (y1-y2)**2)**0.5
 
 def drawSquare(canvas,x,y,size):
-  canvas.create_rectangle(x-size,y-size,x+size,y+size,fill='purple')
+  #canvas.create_rectangle(x-size,y-size,x+size,y+size,fill='purple')
+  pass
 
 #send a request to other user to get their position
 def requestPosition(data):

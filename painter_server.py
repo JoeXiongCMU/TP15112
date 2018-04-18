@@ -9,7 +9,7 @@ import threading
 from queue import Queue
 
 HOST = "" # put your IP address here if playing on multiple computers
-PORT = 50010
+PORT = 50012
 BACKLOG = 4
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
