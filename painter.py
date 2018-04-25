@@ -36,6 +36,9 @@ class Painter(object):
     def turn(self,angle):
         self.dir += angle
     
+    def changeAngle(self,angle):
+        sekf.dir = angle
+    
     #get current position
     def getPosition(self,x,y):
         return (self.x,self.y)
@@ -51,11 +54,14 @@ class Painter(object):
         self.color = color
     
     #draw the painter
-    def drawPainter(self, canvas):
+    def drawPainter(self, canvas,data):
         r = self.size
-        canvas.create_oval(self.x-r, self.y-r, 
-                           self.x+r, self.y+r, fill=self.color)
-        canvas.create_text(self.x, self.y, text=self.PID, fill="white")
+        o = canvas.create_oval(self.x-r, self.y-r, 
+                           self.x+r, self.y+r, fill=self.color, width = 0)
+        t = canvas.create_text(self.x, self.y, text=self.PID, fill="black",
+                                font="Times 8 bold ")
+        data.updateShapes.append(o)
+        data.updateShapes.append(t)
 
 
 

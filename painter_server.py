@@ -9,7 +9,7 @@ import threading
 from queue import Queue
 
 HOST = "" # put your IP address here if playing on multiple computers
-PORT = 50012
+PORT = 50016
 BACKLOG = 4
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -37,7 +37,7 @@ def handleClient(client, serverChannel, cID, clientele):
 def serverThread(clientele, serverChannel):
   while True:
     msg = serverChannel.get(True, None)
-    print("msg recv: ", msg)
+    #print("msg recv: ", msg)
     msgList = msg.split(" ")
     senderID = msgList[0]
     instruction = msgList[1]
@@ -47,8 +47,8 @@ def serverThread(clientele, serverChannel):
         if cID != senderID:
           sendMsg = instruction + " " + senderID + " " + details + "\n"
           clientele[cID].send(sendMsg.encode())
-          print("> sent to %s:" % cID, sendMsg[:-1])
-    print()
+         # print("> sent to %s:" % cID, sendMsg[:-1])
+   # print()
     serverChannel.task_done()
 
 clientele = dict()
@@ -57,7 +57,7 @@ playerNum = 0
 serverChannel = Queue(100)
 threading.Thread(target = serverThread, args = (clientele, serverChannel)).start()
 
-names = ["A", "B", "C", "D"]
+names = ["AAA", "BBB", "CCC", "DDD"]
 colors = ["red", "blue","green","orange"]
 
 while True:

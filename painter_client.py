@@ -6,10 +6,11 @@
 
 import socket
 import threading
+import time
 from queue import Queue
 
 HOST = "" # put your IP address here if playing on multiple computers
-PORT = 50012
+PORT = 50016
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -41,47 +42,25 @@ import random
 ####################################
 
 #draw a player's trail on paper
-def drawOnPaper(data,player):
-    for (x,y) in getPixelCircleList(data,player.x,player.y,player.size):
-      data.paper[x][y] = player.PID
+def drawOneCircle(canvas,cx,cy,size,color):
+    c = canvas.create_oval(cx - size, cy - size,
+                       cx + size, cy + size, fill = color,width = 0)
+    
 
-#draw all the players' trail on paper
-def drawAllOnPaper(data):
-    drawOnPaper(data,data.me)
+def drawPlayerCircle(canvas,player):
+    cx = player.x
+    cy = player.y
+    size = player.size
+    color = player.color
+    drawOneCircle(canvas,cx,cy,size,color)
+
+def drawCircles(canvas,data):
+    drawPlayerCircle(canvas,data.me)
+    
     for PID in data.otherStrangers:
-      drawOnPaper(data,data.otherStrangers[PID])
-
-#draw all the color on paper, pixel by pixel
-#super slow
-def drawPaper(canvas,data):
-    rows = len(data.paper)
-    cols = len(data.paper[0])
+      drawPlayerCircle(canvas,data.otherStrangers[PID])
     
-    for x in range(rows):
-      for y in range(cols):
-        pid = data.paper[x][y]
-        if not pid == "":
-          if pid == data.me.PID: 
-            color = data.me.color
-            canvas.create_line(x,y,x+1,y+1,fill = color)
-          elif pid in data.otherStrangers:
-            color = data.otherStrangers[pid].color
-            canvas.create_line(x,y,x+1,y+1,fill = color)
-
-#get all the pixel coodinate in a circle(cx,cy,size)
-#can't go outside the paper.
-def getPixelCircleList(data,cx,cy,size):
-    lst = []
-    
-    rows = len(data.paper)
-    cols = len(data.paper[0])
-    
-    for i in range(int(cx-size),int(cx+size+1)):
-      for j in range(int(cy-size),int(cy+size+1)):
-        if 0 <= i < rows and 0 <= j < cols:
-          if distance(i,j,cx,cy) <= size:
-            lst.append((i,j))
-    return lst
+    pass
 
 def distance(x1,y1,x2,y2):
   return ((x1-x2)**2 + (y1-y2)**2)**0.5
@@ -106,91 +85,29 @@ def sendMyPosition(data,rPID):
 
 
 def painterMove(data):
+    data.counter += 1
+    msg = ""
     # move myself
     (dx,dy) = data.me.moveForward()
     # update message to send
+    #if data.counter > 10:
     msg = "playerMoveTo %d %d\n" % (dx, dy)
+   #   data.counter = 0
     
     # send the message to other players!
     if (msg != ""):
-      print ("sending: ", msg,)
+    #  print ("sending: ", msg,)
       data.server.send(msg.encode())
     
 
 
-####################################
-# tkinter
-####################################
-
-def init(data):
-    data.me = Painter("Lonely", data.width/2, data.height/2,
-                      data.width,data.height)
-    data.otherStrangers = dict()
-    
-    #use for tech demo, generate powerups in every client
-    data.squares = []
-    data.squareSize = 10
-    
-    #frame = 50
-    data.timerDelay = 20
-    
-    #game state
-    data.gameState = "start"
-    
-    data.rows = data.height
-    data.cols = data.width
-    #use to record every pixel's color.
-    data.paper = [ ([""] * data.cols) for row in range(data.rows) ]
-
-def mousePressed(event, data):
-    data.squares.append((event.x,event.y))
-    msg = "squareSpawn %d %d\n" % (event.x, event.y)
-    
-    # send the message to other players!
-    if (msg != ""):
-      print ("sending: ", msg,)
-      data.server.send(msg.encode())
-    
-
-def keyPressed(event, data):
-    msg = ""
-
-    # Turn
-    if event.keysym in ["Up", "Down", "Left", "Right"]:
-      if event.keysym == "Left":
-        data.me.turn(data.me.turnSpeed)
-      elif event.keysym == "Right":
-        data.me.turn(-data.me.turnSpeed)
-      
-    # teleporting
-    elif event.keysym == "space":
-      # get a random coordinate
-      x = random.randint(0, data.width)
-      y = random.randint(0, data.height)
-      # teleport myself
-      data.me.teleport(x, y)
-      # update the message
-      msg = "playerTeleported %d %d\n" % (x, y)
-    
-    #Debug Mode Key
-    elif event.keysym == "s":
-      requestPosition(data)
-      return
-
-    # send the message to other players!
-    if (msg != ""):
-      print ("sending: ", msg,)
-      data.server.send(msg.encode())
-
-def timerFired(data):
-    painterMove(data)
-    drawAllOnPaper(data)
-    
+def responseFromServer(data):
+    # print(serverMsg.qsize())
     # timerFired receives instructions and executes them
     while (serverMsg.qsize() > 0):
       msg = serverMsg.get(False)
       try:
-        print("received: ", msg, "\n")
+       # print("received: ", msg, "\n")
         msg = msg.split()
         command = msg[0]
 
@@ -199,7 +116,6 @@ def timerFired(data):
           myColor = msg[2]
           data.me.changePID(myPID)
           data.me.changeColor(myColor)
-         # requestPosition(data)
 
         elif (command == "newPlayer"):
           newPID = msg[1]
@@ -209,7 +125,6 @@ def timerFired(data):
           data.otherStrangers[newPID] = Painter(newPID, x, y,
                                                 data.width,data.height,
                                                 color = newColor)
-
         elif (command == "playerMoveTo"):
           PID = msg[1]
           x = int(msg[2])
@@ -247,21 +162,94 @@ def timerFired(data):
       except:
         print("failed")
       serverMsg.task_done()
+
+
+####################################
+# tkinter
+####################################
+
+def init(data):
+    data.me = Painter("A", data.width/2, data.height/2,
+                      data.width,data.height)
+    data.otherStrangers = dict()
+    
+    #use for tech demo, generate powerups in every client
+    data.squares = []
+    data.squareSize = 10
+    
+    #frame = 25
+    data.timerDelay = 40
+    
+    #game state
+    data.gameState = "menu"
+    
+    data.rows = data.height
+    data.cols = data.width
+    #use to record every pixel's color.
+    data.paper = [ ([""] * data.cols) for row in range(data.rows) ]
+    
+    data.updateShapes = []
+    
+    data.drawCounter = 0
+    data.counter = 0
+
+
+def mousePressed(event, data):
+    msg = ""
+    
+    # send the message to other players!
+    if (msg != ""):
+      print ("sending: ", msg,)
+      data.server.send(msg.encode())
+    
+
+def keyPressed(event, data):
+    msg = ""
+
+    # Turn
+    if event.keysym in ["Left", "Right"]:
+        if event.keysym == "Left":
+            data.me.turn(data.me.turnSpeed)
+        elif event.keysym == "Right":
+            data.me.turn(-data.me.turnSpeed)
       
+    # teleporting
+    elif event.keysym == "space":
+      # get a random coordinate
+      x = random.randint(0, data.width)
+      y = random.randint(0, data.height)
+      # teleport myself
+      data.me.teleport(x, y)
+      # update the message
+      msg = "playerTeleported %d %d\n" % (x, y)
+    
+    # send the message to other players!
+    if (msg != ""):
+      print ("sending: ", msg,)
+      data.server.send(msg.encode())
+
+
+def timerFired(canvas,data):
+    painterMove(data)
+    responseFromServer(data)
+    
+   
 
 def redrawAll(canvas, data):
-    drawPaper(canvas,data)
     
     # draw other players
     for playerName in data.otherStrangers:
-      data.otherStrangers[playerName].drawPainter(canvas)
+      data.otherStrangers[playerName].drawPainter(canvas,data)
     # draw me
-    data.me.drawPainter(canvas)
+    data.me.drawPainter(canvas,data)
     
-    #draw purpleSquare
-    for square in data.squares:
-      drawSquare(canvas,square[0],square[1],data.squareSize)
     
+
+def drawPaper(canvas,data):
+    data.drawCounter += 1
+    if data.drawCounter > 1:
+      drawCircles(canvas,data)
+      data.drawCounter = 0
 
 ####################################
 # use the run function as-is
@@ -269,23 +257,44 @@ def redrawAll(canvas, data):
 
 def run(width, height, serverMsg=None, server=None):
     def redrawAllWrapper(canvas, data):
-        canvas.delete(ALL)
-        redrawAll(canvas, data)
-        canvas.update()
-
+        time1 = time.time()
+        for i in data.updateShapes:
+          canvas.delete(i)
+          data.updateShapes.remove(i)
+        redrawAll(canvas, data) 
+        time2 = time.time()
+        #for i in data.updateShapes:
+        #canvas.update()
+        time3 = time.time()
+        d1 = (time2 - time1) * 1000
+        d2 = (time3 - time2) * 1000
+       # print("ddd:(%d,%d)" %(d1,d2))
+        
+    
     def mousePressedWrapper(event, canvas, data):
         mousePressed(event, data)
-        redrawAllWrapper(canvas, data)
+       # redrawAllWrapper(canvas, data)
 
-    def keyPressedWrapper(event, canvas, data):
+    def keyPressedWrapper(event, canvas,  data):
         keyPressed(event, data)
-        redrawAllWrapper(canvas, data)
+      #  redrawAllWrapper(canvas, data)
 
     def timerFiredWrapper(canvas, data):
-        timerFired(data)
+        time1 = time.time()
+        timerFired(canvas,data)
+        time2 = time.time()
+        drawPaper(canvas,data)
+        time3 = time.time()
         redrawAllWrapper(canvas, data)
+        time4 = time.time()
+        dall = (time4 - time1) * 1000
+        d1 = (time2 - time1) * 1000
+        d2 = (time3 - time2) * 1000
+        d3 = (time4 - time3) * 1000
+        
+      #  print("%.2f(%.2f,%.2f,%.2f)" %(dall,d1,d2,d3))
         # pause, then call timerFired again
-        canvas.after(data.timerDelay, timerFiredWrapper, canvas, data)
+        canvas.after(int(max(data.timerDelay - dall,0)), timerFiredWrapper, canvas, data)
     # Set up data and call init
     class Struct(object): pass
     data = Struct()
@@ -299,12 +308,16 @@ def run(width, height, serverMsg=None, server=None):
     root = Tk()
     canvas = Canvas(root, width=data.width, height=data.height)
     canvas.pack()
+    
+   # canvasPaper = Canvas(root, width=data.width, height=data.height)
+   # canvasPaper.pack()
     # set up events
     root.bind("<Button-1>", lambda event:
                             mousePressedWrapper(event, canvas, data))
     root.bind("<Key>", lambda event:
                             keyPressedWrapper(event, canvas, data))
     timerFiredWrapper(canvas, data)
+    
     # and launch the app
     root.mainloop()  # blocks until window is closed
     print("bye!")
