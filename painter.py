@@ -8,15 +8,19 @@ class Painter(object):
 
     def __init__(self, PID, x, y, paperW, paperH,color = "red"):
         self.PID = PID
+        self.name = PID
         self.x = x
         self.y = y
-        self.size = 7
+        self.size = 20
         self.dir = 0 # the direction of painter
-        self.speed = 2
+        self.speed = 3
         self.turnSpeed = 15
         self.color = color
         self.paperW = paperW
         self.paperH = paperH
+        self.ready = False
+        self.percentage = 0
+        self.pixels = 0
         
     #move forward in the dir with speed. Can't go out of the border
     def moveForward(self):
@@ -37,7 +41,7 @@ class Painter(object):
         self.dir += angle
     
     def changeAngle(self,angle):
-        sekf.dir = angle
+        self.dir = angle
     
     #get current position
     def getPosition(self,x,y):
@@ -50,18 +54,34 @@ class Painter(object):
     def changePID(self, PID):
         self.PID = PID
     
+    def changeName(self, name):
+        self.name = name
+    
     def changeColor(self, color):
         self.color = color
+    
+    def changeReady(self,r = False):
+        self.ready = r
+    
+    def getReadyStr(self):
+        if self.ready:
+            return "O"
+        else:
+            return "X"
     
     #draw the painter
     def drawPainter(self, canvas,data):
         r = self.size
         o = canvas.create_oval(self.x-r, self.y-r, 
-                           self.x+r, self.y+r, fill=self.color, width = 0)
-        t = canvas.create_text(self.x, self.y, text=self.PID, fill="black",
+                           self.x+r, self.y+r, fill=self.color, width = 1)
+        t = canvas.create_text(self.x, self.y, text=self.name, fill="black",
                                 font="Times 8 bold ")
         data.updateShapes.append(o)
         data.updateShapes.append(t)
+    
+    def updatePercentage(self,num):
+        self.percentage = self.pixels / num
+        print("%s per:%.1f%"%(self.color,self.percentage))
 
 
 
