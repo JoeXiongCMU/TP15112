@@ -11,13 +11,14 @@ import string
 from queue import Queue
 
 HOST = "" # put your IP address here if playing on multiple computers
-PORT = 50061
+PORT = 50005
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 server.connect((HOST,PORT))
 print("connected to server")
 
+#Handle Server Msg
 def handleServerMsg(server, serverMsg):
   server.setblocking(1)
   msg = ""
@@ -37,11 +38,14 @@ def handleServerMsg(server, serverMsg):
 from tkinter import *
 from painter import *
 from click_button import *
+from block import *
+from power_up import *
 import random
 ####################################
 # menu
 ####################################
 
+# draw menu window(including title and buttons)
 def drawMenuWindow(canvas,data):
   if data.gameState == "menu" or data.gameState == "select":
     menu = canvas.create_text(data.width / 2, data.height / 5,
@@ -51,7 +55,8 @@ def drawMenuWindow(canvas,data):
     
     for button in data.menuButtons:
       button.drawButton(data,canvas)
-    
+
+# draw select window(A grid of players)    
 def drawSelectWindow(canvas,data):
   if data.gameState == "select":
     selectMenu = canvas.create_rectangle(data.width/5, data.height/3,
@@ -68,30 +73,31 @@ def drawSelectWindow(canvas,data):
     items = ["","Name","Color","Ready?"]
     drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
     offsetY += gridY
-     
+    
+    #draw my info
     player = data.me
     items = ["Player:",player.name,player.color,player.getReadyStr()]
     drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
     offsetY += gridY
-    
+    #draw other player info
     for PID in data.otherStrangers:
       player = data.otherStrangers[PID]
       items = ["Player:",player.name,player.color,player.getReadyStr()]
       drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
       offsetY += gridY
-    
+    #draw "ready" button
     for button in data.selectButtons:
       button.drawButton(data,canvas)
     
-
+#draw a single row of "Items"
 def drawSelectRow(canvas,data,items,offsetX,offsetY,gridX):
     for item in items:
-      t = canvas.create_text(offsetX,offsetY,text = item,fill="yellow",
+      t = canvas.create_text(offsetX,offsetY,text = str(item),fill="yellow",
                         font="Times 12 bold")
       offsetX += gridX
       data.updateShapes.append(t)
     
-    
+#draw the window of change name    
 def drawChangeName(canvas,data):
   if data.gameState == "name":
     nameMenu = canvas.create_rectangle(data.width/5, data.height/3,
@@ -123,15 +129,78 @@ def drawChangeName(canvas,data):
     for button in data.nameButtons:
       button.drawButton(data,canvas)
 
+#draw the gameplay UI
 def drawGameUI(canvas,data):
     text_time = canvas.create_text(data.width - 30,30,anchor = NE,
                               text="Time:"+str(int(data.time)), fill="black",
-                              font="Times 10 bold"
+                              font="Times 20 bold"
                               )
     data.updateShapes.append(text_time)
 
+#draw the result window
+def drawResult(canvas,data):
+  if data.gameState == "end":
+    endMenu = canvas.create_rectangle(data.width/5, data.height/3,
+                                        data.width/5*4 ,data.height/3 *2.5,
+                                        fill = 'black',width = 2
+                                        )
+    data.updateShapes.append(endMenu)
+    
+    offsetX = data.width /4
+    offsetY = data.height/3* 1.2
+    
+    gridX = 120
+    gridY = 50
+   
+    items = ["Name","Color","Percentage"]
+    drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
+    offsetY += gridY
+     
+    #draw my result
+    player = data.me
+    items = [player.name,player.color,player.percentage]
+    drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
+    offsetY += gridY
+    #draw other palyer's result
+    for PID in data.otherStrangers:
+      player = data.otherStrangers[PID]
+      items = [player.name,player.color,player.percentage]
+      drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
+      offsetY += gridY
+    
+    for button in data.endButtons:
+      button.drawButton(data,canvas)
+    
+    
+#get all the pixel coodinate in a circle(cx,cy,size)
+#can't go outside the paper.
+def getPixelCircleList(data,cx,cy,size):
+    lst = []
+    
+    rows = len(data.paper)
+    cols = len(data.paper[0])
+    
+    for i in range(int(cx-size),int(cx+size+1)):
+      for j in range(int(cy-size),int(cy+size+1)):
+        if 0 <= i < rows and 0 <= j < cols:
+          if distance(i,j,cx,cy) <= size:
+            lst.append((i,j))
+    return lst
 
 
+#draw a player's trail on paper
+def drawOnPaper(data,player):
+    for (x,y) in getPixelCircleList(data,player.x,player.y,player.size):
+      data.paper[x][y] = player.PID
+
+#draw all the players' trail on paper
+def updateResultOnPaper(data):
+    drawOnPaper(data,data.me)
+    for PID in data.otherStrangers:
+      drawOnPaper(data,data.otherStrangers[PID])
+
+#Update the pixel precentage result in every player
+#low efficent, cost a lot of time
 def updateResult(data):
     data.me.pixels = 0
     for PID in data.otherStrangers:
@@ -144,14 +213,15 @@ def updateResult(data):
         else:
           for PID in data.otherStrangers:
             if data.paper[i][j] == PID:
-              data.otherStrangers.pixels += 1
+              data.otherStrangers[PID].pixels += 1
     
     data.me.updatePercentage(data.rows * data.cols)
     for PID in data.otherStrangers:
       data.otherStrangers[PID].updatePercentage(data.rows * data.cols)
 
+#init the game setting
 def initGameSetting(data):
-    data.time = 40
+    data.time = 10
     data.me.percentage = 0
     data.resultUpdateTime = 5000
     
@@ -163,7 +233,7 @@ def initGameSetting(data):
     #use to record every pixel's color.
     data.paper = [ ([""] * data.cols) for row in range(data.rows) ]
     
-
+#init the buttons for select window
 def initSelectButton(data):
     data.selectButtons = []
     
@@ -172,7 +242,20 @@ def initSelectButton(data):
                                     "ready",
                                     "Ready!",40,'yellow')
     data.selectButtons.append(button_ready)
+
+#init the buttons for end window
+def initEndButton(data):
+    data.endButtons = []
     
+    button_back = ClickButton(300-50,450-20,
+                                   300+50, 450+20,
+                                    "end",
+                                    "Play Again!",40,'yellow')
+    data.endButtons.append(button_back)
+
+
+
+#init the buttons for change name window   
 def initName(data):
     data.newName = ""
     data.nameButtons = []
@@ -183,7 +266,7 @@ def initName(data):
                                     "Done!",40,'yellow')
     data.nameButtons.append(button_done_name)
     
-
+#init the buttons for main menu
 def initMenuButton(data):
     offsetX = data.width/3
     offsetY = data.height/3
@@ -215,8 +298,53 @@ def initMenuButton(data):
                                           "How to Play?",fontSize,'orange')
     
     data.menuButtons.append(button_play_instruction)
-      
 
+
+def initBlock(data):
+    data.block = Block(data.width/2,data.height/2,50)
+    
+ 
+def initPowerups(data):
+   data.powerups = []
+   data.powerupTimer = 0
+
+
+def updatePowerUp(data):
+    #spawn of powerup
+    data.powerupTimer += data.timerDelay/1000
+    if data.powerupTimer > 12:
+      data.powerupTimer = 0
+      x = random.randint(10,data.width)
+      y = random.randint(10,data.height)
+      type = random.randint(0,1)
+      if type == 0:
+        name = "speedup"
+      else:
+        name = "sizeup"
+      data.powerups.append(PowerUp(x,y,name))
+    
+    #update power up time
+    for PID in data.otherStrangers:
+      player = data.otherStrangers[PID]
+      updatePowerUpTime(data,player)
+    
+    updatePowerUpTime(data,data.me)
+    
+def updatePowerUpTime(data,player):
+    #update size up time
+    if player.isSizeUp:
+      player.sizeUpTimer -= data.timerDelay/1000
+      if(player.sizeUpTimer < 0):
+        player.isSizeUp = False
+        player.size = 20
+    #update speed up time
+    if player.isSpeedUp:
+      player.speedUpTimer -= data.timerDelay/1000
+      if(player.speedUpTimer < 0):
+        player.isSpeedUp = False
+        player.speed = 4
+
+#return True if everyone is ready
 def checkAllReady(data):
   if not data.me.ready:
     return False
@@ -236,7 +364,7 @@ def drawOneCircle(canvas,cx,cy,size,color):
     c = canvas.create_oval(cx - size, cy - size,
                        cx + size, cy + size, fill = color,width = 0)
     
-
+#draw a single player's circle
 def drawPlayerCircle(canvas,player):
     cx = player.x
     cy = player.y
@@ -244,6 +372,7 @@ def drawPlayerCircle(canvas,player):
     color = player.color
     drawOneCircle(canvas,cx,cy,size,color)
 
+#draw all the player's circle
 def drawCircles(canvas,data):
     drawPlayerCircle(canvas,data.me)
     
@@ -278,7 +407,7 @@ def painterMove(data):
     data.counter += 1
     msg = ""
     # move myself
-    (dx,dy) = data.me.moveForward()
+    (dx,dy) = data.me.moveForward(data)
     # update message to send
     #if data.counter > 10:
     msg = "playerMoveTo %d %d\n" % (dx, dy)
@@ -293,10 +422,14 @@ def painterMove(data):
 def countDownTimer(data):
     data.time -= data.timerDelay/1000
     
-    data.resultCounter +=data.timerDelay
-    if data.resultCounter > 5000:
-      data.resultCounter = 0
+    if data.time < 0:
+      data.gameState = "end"
       updateResult(data)
+    
+    data.resultCounter +=data.timerDelay
+    #if data.resultCounter > 5000:
+    #  data.resultCounter = 0
+     # updateResult(data)
     
 
 def responseFromServer(data):
@@ -375,26 +508,15 @@ def responseFromServer(data):
       serverMsg.task_done()
 
 
-####################################
-# tkinter
-####################################
-
-def init(data):
-    data.me = Painter("A",data.width/2, data.height/2,
-                      data.width,data.height)
-    data.otherStrangers = dict()
+def initAll(data):
+    
     
     #use for tech demo, generate powerups in every client
     data.squares = []
     data.squareSize = 10
     
-    #frame = 25
-    data.timerDelay = 40
-    
     #game state
     data.gameState = "menu"
-    
-    data.updateShapes = []
     
     data.drawCounter = 0
     data.counter = 0
@@ -405,11 +527,39 @@ def init(data):
     
     initName(data)
     initSelectButton(data)
+    initEndButton(data)
     
     initGameSetting(data)
+    initBlock(data)
+    initPowerups(data)
+    
+    data.numReadyPlayers = 0
+    data.initClear = False
+    
+    for PID in data.otherStrangers:
+      player = data.otherStrangers[PID]
+      player.reset()
+    data.me.reset()
+    
+    
+####################################
+# tkinter
+####################################
+
+def init(data):
+    data.otherStrangers = dict()
+    data.me = Painter("A",data.width/2, data.height/2,
+                      data.width,data.height)
     
     data.numPlayers = 0
-    data.numReadyPlayers = 0
+    
+    data.updateShapes = []
+    
+    #frame = 25
+    data.timerDelay = 40
+    
+    initAll(data)
+    
 
 
 def mousePressed(event, data):
@@ -432,7 +582,11 @@ def mousePressed(event, data):
         if button.clicked(event.x,event.y):
           msg = "ready LLL\n" 
           data.me.changeReady(True)
-          
+    elif data.gameState == "end":
+      for button in data.endButtons:
+        if button.clicked(event.x,event.y):
+          data.gameState = "menu"
+          initAll(data)
     
     
     
@@ -471,6 +625,8 @@ def keyPressed(event, data):
         # update the message
         msg = "playerTeleported %d %d\n" % (x, y)
     
+      
+    
     # send the message to other players!
     if (msg != ""):
       print ("sending: ", msg,)
@@ -484,15 +640,25 @@ def timerFired(canvas,data):
       painterMove(data)
       drawPaper(canvas,data)
       countDownTimer(data)
+      updateResultOnPaper(data)
+      updatePowerUp(data)
     elif data.gameState == "select":
       if checkAllReady(data):# and len(data.otherStrangers) > 0:
         data.gameState = "game"
+        data.me.initPosition()
         
     responseFromServer(data)
     
-   
+def clearAll(canvas):
+    for item in canvas.find_all():
+      canvas.delete(item)
+    
 
 def redrawAll(canvas, data):
+    if not data.initClear:
+      data.initClear = True
+      clearAll(canvas)
+      
     if data.gameState == "menu":
       drawMenuWindow(canvas,data)
     elif data.gameState == "name":
@@ -507,13 +673,24 @@ def redrawAll(canvas, data):
       # draw me
       data.me.drawPainter(canvas,data)
       
+      #draw power-up
+      for powerup in data.powerups:
+        powerup.drawPowerUp(canvas,data)
+      
+      # draw block
+      data.block.drawBlock(canvas,data)
+      
+      
+      
       # draw UI
       drawGameUI(canvas,data)
+    elif data.gameState == "end":
+      drawResult(canvas,data)
     
     
 
 def drawPaper(canvas,data):
-    data.drawCounter += 2
+    data.drawCounter += 1
     if data.drawCounter > 1:
       drawCircles(canvas,data)
       data.drawCounter = 0
@@ -557,9 +734,9 @@ def run(width, height, serverMsg=None, server=None):
         d1 = (time2 - time1) * 1000
         d2 = (time3 - time2) * 1000
         d3 = (time4 - time3) * 1000
+        #len_c =len(canvas.find_all())
         
-        
-      #  print("%.2f(%.2f,%.2f,%.2f)" %(dall,d1,d2,d3))
+        print("%.2f(%.2f,%.2f,%.2f)" %(dall,d1,d2,d3))
         # pause, then call timerFired again
         canvas.after(int(max(data.timerDelay - dall,0)), timerFiredWrapper, canvas, data)
     # Set up data and call init

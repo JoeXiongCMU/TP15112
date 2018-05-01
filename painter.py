@@ -13,7 +13,7 @@ class Painter(object):
         self.y = y
         self.size = 20
         self.dir = 0 # the direction of painter
-        self.speed = 3
+        self.speed = 4
         self.turnSpeed = 15
         self.color = color
         self.paperW = paperW
@@ -22,10 +22,35 @@ class Painter(object):
         self.percentage = 0
         self.pixels = 0
         
+        self.initPosition()
+        
+        self.isSpeedUp = False
+        self.isSizeUp = False
+        
+        self.speedUpTimer = 10
+        self.sizeUpTimer = 10
+    
+    def reset(self):
+        self.initPosition()
+        self.ready = False
+        self.isSpeedUp = False
+        self.isSizeUp = False
+    
     #move forward in the dir with speed. Can't go out of the border
-    def moveForward(self):
+    def moveForward(self,data):
+        oriX = self.x
+        oriY = self.y
+        block = data.block
+        
+        #Check collision with the block in X
         self.x += self.speed * math.sin(self.dir*math.pi/180)
+        if block.checkInside(self.x,self.y,self.size):
+            self.x = oriX
+        #Check collision with the block in Y
         self.y += self.speed * math.cos(self.dir*math.pi/180)
+        if block.checkInside(self.x,self.y,self.size):
+            self.y = oriY
+        #Check collision with the border of paper
         if self.x > self.paperW:
             self.x = self.paperW
         elif self.x < 0:
@@ -34,7 +59,44 @@ class Painter(object):
             self.y = self.paperH
         elif self.y < 0:
             self.y = 0
+        
+        #Check collision with power up and get its effect
+        for powerup in data.powerups:
+            if powerup.checkCollision(self.x,self.y,self.size):
+                if powerup.name == "speedup":
+                    self.isSpeedUp = True
+                    self.speed = 8
+                    self.speedUpTimer = 10
+                elif powerup.name == "sizeup":
+                    self.isSizeUp = True
+                    self.size = 30
+                    self.sizeUpTimer = 10
+                data.powerups.remove(powerup)
+                break
+                
+        
         return (self.x,self.y)
+    
+    
+    def initPosition(self):
+        disToBorder = 50
+        
+        if self.PID == 'A':
+            self.x = disToBorder
+            self.y = disToBorder
+            self.dir = 45
+        elif self.PID == 'B':
+            self.x = self.paperW - disToBorder
+            self.y = disToBorder
+            self.dir = -45
+        elif self.PID == 'C':
+            self.x = self.paperW - disToBorder
+            self.y = self.paperH - disToBorder
+            self.dir = 135
+        elif self.PID == 'D':
+            self.x = disToBorder
+            self.y = self.paperH - disToBorder
+            self.dir = -135
     
     #turn an angle
     def turn(self,angle):
@@ -80,8 +142,12 @@ class Painter(object):
         data.updateShapes.append(t)
     
     def updatePercentage(self,num):
-        self.percentage = self.pixels / num
-        print("%s per:%.1f%"%(self.color,self.percentage))
+        self.percentage = str(int(self.pixels / num * 1000)/10)
+        
+        print("%s per:%s" % (self.color,self.percentage))
+    
+    
+    
 
 
 
