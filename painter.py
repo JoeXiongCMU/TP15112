@@ -3,7 +3,7 @@
 # by Kyle Chin
 ##########################
 import math
-
+import random
 class Painter(object):
 
     def __init__(self, PID, x, y, paperW, paperH,color = "red"):
@@ -29,50 +29,85 @@ class Painter(object):
         
         self.speedUpTimer = 10
         self.sizeUpTimer = 10
+        
+        self.isBot = False
+        self.targetX = 0
+        self.targetY = 0
+        self.targetDir = 0
+        self.targetCoolDown = 0
+        
+        #change bot target position
+        self.changeTargetPosition()
+        
+    
+    def changeTargetPosition(self):
+        if not self.isBot:
+            return
+        if not self.targetCoolDown <= 0:
+            self.targetCoolDown -= 1
+            return
+        self.targetX = random.randint(0,self.paperW)
+        self.targetY = random.randint(0,self.paperH)
+        
+            
+        dis = ((self.x - self.targetX)**2 + (self.y - self.targetY)**2)**0.5
+        self.targetDir = math.asin((-self.x+self.targetX)/dis)*180/math.pi
+        if self.targetY < self.y:
+            if self.targetDir > 0:
+                self.targetDir += 90
+            else:
+                self.targetDir = -180 - (self.targetDir)
+        
+        print("%s TARGET:(%d,%d),%d, ME:(%d,%d,%d)" %(self.color,self.targetX,self.targetY,self.targetDir,self.x,self.y,self.dir))
+        self.targetCoolDown = 8
     
     def reset(self):
         self.initPosition()
         self.ready = False
         self.isSpeedUp = False
         self.isSizeUp = False
+        self.speed = 4
+        self.size = 20
     
     #move forward in the dir with speed. Can't go out of the border
     def moveForward(self,data):
         oriX = self.x
         oriY = self.y
-        block = data.block
+        blocks = data.blocks
         
         #Check collision with the block in X
         self.x += self.speed * math.sin(self.dir*math.pi/180)
-        if block.checkInside(self.x,self.y,self.size):
-            self.x = oriX
+        for block in blocks:
+            if block.checkInside(self.x,self.y,self.size):
+                self.x = oriX
+                if self.isBot:
+                    self.changeTargetPosition()
+                break
         #Check collision with the block in Y
         self.y += self.speed * math.cos(self.dir*math.pi/180)
-        if block.checkInside(self.x,self.y,self.size):
-            self.y = oriY
+        for block in blocks:
+            if block.checkInside(self.x,self.y,self.size):
+                self.y = oriY
+                if self.isBot:
+                    self.changeTargetPosition()
+                break
         #Check collision with the border of paper
         if self.x > self.paperW:
             self.x = self.paperW
+            self.changeTargetPosition()
         elif self.x < 0:
             self.x = 0
+            self.changeTargetPosition()
         if self.y > self.paperH:
             self.y = self.paperH
+            self.changeTargetPosition()
         elif self.y < 0:
             self.y = 0
+            self.changeTargetPosition()
         
-        #Check collision with power up and get its effect
-        for powerup in data.powerups:
-            if powerup.checkCollision(self.x,self.y,self.size):
-                if powerup.name == "speedup":
-                    self.isSpeedUp = True
-                    self.speed = 8
-                    self.speedUpTimer = 10
-                elif powerup.name == "sizeup":
-                    self.isSizeUp = True
-                    self.size = 30
-                    self.sizeUpTimer = 10
-                data.powerups.remove(powerup)
-                break
+        
+                
+        
                 
         
         return (self.x,self.y)
@@ -92,11 +127,11 @@ class Painter(object):
         elif self.PID == 'C':
             self.x = self.paperW - disToBorder
             self.y = self.paperH - disToBorder
-            self.dir = 135
+            self.dir = -135
         elif self.PID == 'D':
             self.x = disToBorder
             self.y = self.paperH - disToBorder
-            self.dir = -135
+            self.dir = 135
     
     #turn an angle
     def turn(self,angle):
@@ -136,17 +171,23 @@ class Painter(object):
         r = self.size
         o = canvas.create_oval(self.x-r, self.y-r, 
                            self.x+r, self.y+r, fill=self.color, width = 1)
-        t = canvas.create_text(self.x, self.y, text=self.name, fill="black",
+        nameColor = "black"
+        if data.me.PID == self.PID:
+            nameColor = "white"
+        t = canvas.create_text(self.x, self.y, text=self.name, fill=nameColor,
                                 font="Times 8 bold ")
+        
         data.updateShapes.append(o)
         data.updateShapes.append(t)
     
     def updatePercentage(self,num):
-        self.percentage = str(int(self.pixels / num * 1000)/10)
+        self.percentage = self.pixels / num * 100
         
-        print("%s per:%s" % (self.color,self.percentage))
+        print("%s per:%.1f" % (self.color,self.percentage))
+        return self.percentage
     
-    
+    def percentageStr(self):
+        return str(int(self.percentage * 10)/10)
     
 
 

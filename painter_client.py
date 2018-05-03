@@ -11,7 +11,7 @@ import string
 from queue import Queue
 
 HOST = "" # put your IP address here if playing on multiple computers
-PORT = 50005
+PORT = 50002
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -35,6 +35,11 @@ def handleServerMsg(server, serverMsg):
 # events-example0.py from 15-112 website
 # Barebones timer, mouse, and keyboard events
 
+
+names = ["A", "B", "C", "D"]
+colors = ["red", "blue","green","orange"]
+
+
 from tkinter import *
 from painter import *
 from click_button import *
@@ -54,6 +59,21 @@ def drawMenuWindow(canvas,data):
     data.updateShapes.append(menu)
     
     for button in data.menuButtons:
+      button.drawButton(data,canvas)
+
+
+def drawInstruction(canvas,data):
+  if data.gameState == "instruction" :
+    data.instructionImage = PhotoImage(file=data.imageName)
+    title = canvas.create_text(data.width / 2, 50,
+                              text = "How to play?",fill="black",
+                              font="Times 38 bold" )
+    data.updateShapes.append(title)
+    
+    img = canvas.create_image(data.width/2,data.height/2,
+                        anchor = CENTER,image=data.instructionImage)
+    data.updateShapes.append(img)
+    for button in data.instructionButtons:
       button.drawButton(data,canvas)
 
 # draw select window(A grid of players)    
@@ -140,6 +160,12 @@ def drawGameUI(canvas,data):
 #draw the result window
 def drawResult(canvas,data):
   if data.gameState == "end":
+    winner = canvas.create_text(data.width / 2, data.height / 5,
+                              text = "Winner: "+ str(data.winner.name),fill="black",
+                              font="Times 38 bold" )
+    data.updateShapes.append(winner)
+    
+    
     endMenu = canvas.create_rectangle(data.width/5, data.height/3,
                                         data.width/5*4 ,data.height/3 *2.5,
                                         fill = 'black',width = 2
@@ -150,7 +176,7 @@ def drawResult(canvas,data):
     offsetY = data.height/3* 1.2
     
     gridX = 120
-    gridY = 50
+    gridY = 30
    
     items = ["Name","Color","Percentage"]
     drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
@@ -158,13 +184,13 @@ def drawResult(canvas,data):
      
     #draw my result
     player = data.me
-    items = [player.name,player.color,player.percentage]
+    items = [player.name,player.color,player.percentageStr()]
     drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
     offsetY += gridY
     #draw other palyer's result
     for PID in data.otherStrangers:
       player = data.otherStrangers[PID]
-      items = [player.name,player.color,player.percentage]
+      items = [player.name,player.color,player.percentageStr()]
       drawSelectRow(canvas,data,items,offsetX,offsetY,gridX)
       offsetY += gridY
     
@@ -199,6 +225,23 @@ def updateResultOnPaper(data):
     for PID in data.otherStrangers:
       drawOnPaper(data,data.otherStrangers[PID])
 
+def findWinner(data):
+  players = []
+  players.append(data.me)
+  for PID in data.otherStrangers:
+    players.append(data.otherStrangers[PID])
+  
+  max = 0
+  winner = data.me
+  for player in players:
+    p = player.percentage
+    if p > max:
+      max = p
+      winner = player
+  
+  data.winner = winner
+  return max
+
 #Update the pixel precentage result in every player
 #low efficent, cost a lot of time
 def updateResult(data):
@@ -215,13 +258,30 @@ def updateResult(data):
             if data.paper[i][j] == PID:
               data.otherStrangers[PID].pixels += 1
     
-    data.me.updatePercentage(data.rows * data.cols)
-    for PID in data.otherStrangers:
-      data.otherStrangers[PID].updatePercentage(data.rows * data.cols)
+    if data.me.PID == 'A':
+      p = data.me.updatePercentage(data.rows * data.cols)
+      #send msg to other player
+      msg = "updateResult %s %f\n" %(data.me.PID,p)
+      
+      if (msg != ""):
+        print ("sending: ", msg,)
+        data.server.send(msg.encode())
+      
+      for PID in data.otherStrangers:
+        p = data.otherStrangers[PID].updatePercentage(data.rows * data.cols)
+        #send msg to other player
+        msg = "updateResult %s %f\n" %(PID,p)
+        
+        if (msg != ""):
+          print ("sending: ", msg,)
+          data.server.send(msg.encode())
+    
+    findWinner(data)
+      
 
 #init the game setting
 def initGameSetting(data):
-    data.time = 10
+    data.time = 30
     data.me.percentage = 0
     data.resultUpdateTime = 5000
     
@@ -240,8 +300,24 @@ def initSelectButton(data):
     button_ready = ClickButton(300-50,450-20,
                                    300+50, 450+20,
                                     "ready",
-                                    "Ready!",40,'yellow')
+                                    "Ready!",30,'yellow')
     data.selectButtons.append(button_ready)
+    button_bot = ClickButton(300-50,400-20,
+                                   300+50, 400+20,
+                                    "bot",
+                                    "Add Bot",30,'yellow')
+    data.selectButtons.append(button_bot)
+
+#init the buttons for select window
+def initInstructionButton(data):
+    data.instructionButtons = []
+    
+    button_back = ClickButton(300-50,550-20,
+                                   300+50, 550+20,
+                                    "back",
+                                    "Back!",30,'yellow')
+    data.instructionButtons.append(button_back)
+
 
 #init the buttons for end window
 def initEndButton(data):
@@ -274,7 +350,7 @@ def initMenuButton(data):
     buttonX = 200
     buttonY = 50
     fontSize = 30
-    buttonInter = 20
+    buttonInter = 50
     
     button_play_online = ClickButton(offsetX,offsetY,
                                     offsetX + buttonX, offsetY + buttonY,
@@ -282,26 +358,42 @@ def initMenuButton(data):
                                     "Start Game!",fontSize,'orange')
     data.menuButtons.append(button_play_online)
     
-    button_play_offline = ClickButton(offsetX,
+    button_play_instruction = ClickButton(offsetX,
                                       offsetY + buttonY + buttonInter ,
                                       offsetX + buttonX , 
                                       offsetY + buttonY * 2 + buttonInter,
-                                      "offline",
-                                      "Offline Game!",fontSize,'orange')
-    data.menuButtons.append(button_play_offline)
-    
-    button_play_instruction = ClickButton(offsetX,
-                                          offsetY + buttonY * 2 + buttonInter *2,
-                                          offsetX + buttonX, 
-                                          offsetY + buttonY * 3 + buttonInter *2,
-                                          "insturction",
-                                          "How to Play?",fontSize,'orange')
-    
+                                      "instruction",
+                                      "How to Play?",fontSize,'orange')
     data.menuButtons.append(button_play_instruction)
+    
 
 
 def initBlock(data):
-    data.block = Block(data.width/2,data.height/2,50)
+    if data.me.PID == 'A':
+      data.blocks = []
+      for i in range(3):
+        b = 120
+        x = random.randint(b,data.width - b)
+        y = random.randint(b,data.height - b)
+        while(checkBlockOverlay(data.blocks,x,y)):
+          x = random.randint(b,data.width - b)
+          y = random.randint(b,data.height - b)
+          
+        size = random.randint(30,60)
+        data.blocks.append(Block(x,y,size))
+        #send msg to other player
+        msg = "addBlock %d %d %d\n" %(x,y,size)
+        print("newBlock %d %d" %(x,y))
+        if (msg != ""):
+          print ("sending: ", msg,)
+          data.server.send(msg.encode())
+
+def checkBlockOverlay(blocks,x,y):
+    for block in blocks:
+      if distance(block.x,block.y,x,y) < 120:
+        print("OVERLAY!!\n")
+        return True
+    return False
     
  
 def initPowerups(data):
@@ -309,19 +401,60 @@ def initPowerups(data):
    data.powerupTimer = 0
 
 
-def updatePowerUp(data):
-    #spawn of powerup
-    data.powerupTimer += data.timerDelay/1000
-    if data.powerupTimer > 12:
-      data.powerupTimer = 0
-      x = random.randint(10,data.width)
-      y = random.randint(10,data.height)
-      type = random.randint(0,1)
-      if type == 0:
-        name = "speedup"
+def moveAllBot(data):
+  if data.me.PID == 'A':
+    for PID in data.otherStrangers:
+      player = data.otherStrangers[PID]
+      botAI(player)
+
+def botAI(player):
+  #only control bot move angle
+  if not player.isBot:
+    return
+  dis = distance(player.x,player.y,player.targetX,player.targetY)
+  if dis > 80:
+    #go straight toward the target position
+    #targetAngle = math.asin((-player.x+player.targetX)/dis)*180/math.pi
+    
+    currentAngle = player.dir
+   # print("%s:%f,%f"%(player.color,player.targetDir,currentAngle))
+    
+    delta = currentAngle - player.targetDir
+    if delta < -5 or delta > 5:
+      if currentAngle > player.targetDir:
+        player.turn(-player.turnSpeed/3)
       else:
-        name = "sizeup"
-      data.powerups.append(PowerUp(x,y,name))
+        player.turn(player.turnSpeed/3)
+    #player.dir = targetAngle
+      print("%s TURNING!\n"%player.color)
+  else:
+    player.changeTargetPosition()
+    print("%s CHANGING\n" % player.color)
+    
+
+def updatePowerUp(data):
+   # print(data.powerups)
+    
+    #spawn of powerup
+    if data.me.PID == 'A':
+      data.powerupTimer += data.timerDelay/1000
+      if data.powerupTimer > 12:
+        data.powerupTimer = 0
+        x = random.randint(10,data.width)
+        y = random.randint(10,data.height)
+        type = random.randint(0,1)
+        if type == 0:
+          name = "speedup"
+        else:
+          name = "sizeup"
+        data.powerups.append(PowerUp(x,y,name))
+      
+        #send msg to other player
+        msg = "addPowerUp %d %d %s\n" %(x,y,name)
+        
+        if (msg != ""):
+          print ("sending: ", msg,)
+          data.server.send(msg.encode())
     
     #update power up time
     for PID in data.otherStrangers:
@@ -343,6 +476,21 @@ def updatePowerUpTime(data,player):
       if(player.speedUpTimer < 0):
         player.isSpeedUp = False
         player.speed = 4
+    
+    #Check collision to new powerup
+    for powerup in data.powerups:
+        if powerup.checkCollision(player.x,player.y,player.size):
+            if powerup.name == "speedup":
+                player.isSpeedUp = True
+                player.speed = 8
+                player.speedUpTimer = 10
+            elif powerup.name == "sizeup":
+                player.isSizeUp = True
+                player.size = 30
+                player.sizeUpTimer = 10
+            data.powerups.remove(powerup)
+            break
+    
 
 #return True if everyone is ready
 def checkAllReady(data):
@@ -353,6 +501,33 @@ def checkAllReady(data):
     if not player.ready:
       return False
   return True
+
+def addBot(data):
+    playerNum = len(data.otherStrangers) + 1
+    if playerNum >= 4:
+        return
+    
+    #Set up player name
+    botName = names[playerNum]
+    botColor = colors[playerNum]
+    
+    x = data.width/2
+    y = data.height/2
+    data.otherStrangers[botName] = Painter(botName,x, y,
+                                          data.width,data.height,
+                                          color = botColor)
+    data.otherStrangers[botName].isBot = True
+    data.otherStrangers[botName].ready = True # always set bot ready
+    data.otherStrangers[botName].changeTargetPosition()
+    playerNum += 1
+    
+    #send bot msg to other player
+    msg = "addBot %s %s\n" %(botName,botColor)
+    
+    if (msg != ""):
+      print ("sending: ", msg,)
+      data.server.send(msg.encode())
+
 
 ####################################
 # custom functions
@@ -404,7 +579,6 @@ def sendMyPosition(data,rPID):
 
 
 def painterMove(data):
-    data.counter += 1
     msg = ""
     # move myself
     (dx,dy) = data.me.moveForward(data)
@@ -417,6 +591,22 @@ def painterMove(data):
     if (msg != ""):
     #  print ("sending: ", msg,)
       data.server.send(msg.encode())
+    
+    if data.me.PID == 'A':
+      painterMoveBot(data)
+
+
+def painterMoveBot(data):
+    msg = ""
+    for PID in data.otherStrangers:
+      player = data.otherStrangers[PID]
+      if player.isBot == True:
+        (dx,dy) = player.moveForward(data)
+        msg = "botMoveTo %s %d %d\n" % (PID,dx, dy)
+        
+      if (msg != ""):
+      #  print ("sending: ", msg,)
+        data.server.send(msg.encode())
     
 
 def countDownTimer(data):
@@ -441,7 +631,7 @@ def responseFromServer(data):
        
         msg = msg.split()
         command = msg[0]
-        if not command == "playerMoveTo":
+        if not (command == "playerMoveTo" or command == "botMoveTo"):
           print("received: ", msg, "\n")
 
         if (command == "myIDis"):
@@ -461,6 +651,47 @@ def responseFromServer(data):
                                                 color = newColor)
           data.numPlayers += 1
         
+        elif(command == "addBot"):
+          PID = msg[1]
+          newPID = msg[2]
+          newColor = msg[3]
+          
+          x = data.width/2
+          y = data.height/2
+          data.otherStrangers[newPID] = Painter(newPID,x, y,
+                                                data.width,data.height,
+                                                color = newColor)
+          data.otherStrangers[newPID].isBot = True
+          data.otherStrangers[newPID].ready = True
+          data.numPlayers += 1
+        
+        elif(command == "updateResult"):
+          sPID = msg[1]
+          PID = msg[2]
+          p = float(msg[3])
+          if PID == data.me.PID:
+            data.me.percentage = p
+          else:
+            data.otherStrangers[PID].percentage = p
+          findWinner(data)
+        
+        elif(command == "addPowerUp"):
+          PID = msg[1]
+          x = int(msg[2])
+          y = int(msg[3])
+          name = msg[4]
+          newPowerUp = PowerUp(x,y,name)
+          data.powerups.append(newPowerUp)
+        
+        elif (command == "addBlock"):
+          sendPID = msg[1]
+          x = int(msg[2])
+          y = int(msg[3])
+          size = int(msg[4])
+          newBlock = Block(x,y,size)
+          data.blocks.append(newBlock)
+          print(data.blocks)
+        
         elif(command == "ready"):
           PID = msg[1]
           data.otherStrangers[PID].changeReady(True)
@@ -474,6 +705,13 @@ def responseFromServer(data):
           PID = msg[1]
           x = int(msg[2])
           y = int(msg[3])
+          data.otherStrangers[PID].teleport(x,y)
+        
+        elif (command == "botMoveTo"):
+          sendPID = msg[1]
+          PID = msg[2]
+          x = int(msg[3])
+          y = int(msg[4])
           data.otherStrangers[PID].teleport(x,y)
 
         elif (command == "playerTeleported"):
@@ -530,15 +768,26 @@ def initAll(data):
     initEndButton(data)
     
     initGameSetting(data)
-    initBlock(data)
     initPowerups(data)
+    initInstructionButton(data)
+    data.blocks = []
     
     data.numReadyPlayers = 0
     data.initClear = False
     
+    data.winner = data.me
+    
+    delGroup = []
     for PID in data.otherStrangers:
       player = data.otherStrangers[PID]
+      if player.isBot:
+        delGroup.append(PID)
+        continue
       player.reset()
+    
+    for PID in delGroup:
+      del data.otherStrangers[PID]
+    
     data.me.reset()
     
     
@@ -555,6 +804,9 @@ def init(data):
     
     data.updateShapes = []
     
+    data.imageName = "instruction.gif"
+    
+    
     #frame = 25
     data.timerDelay = 40
     
@@ -570,7 +822,15 @@ def mousePressed(event, data):
         if button.clicked(event.x,event.y):
           if button.name == "online":
             data.gameState = "name"
+            print("enter name\n")
             return
+          if button.name == "instruction":
+            data.gameState = "instruction"
+    elif data.gameState == "instruction":
+      for button in data.instructionButtons:
+        if button.clicked(event.x,event.y):
+          if button.name == "back":
+            data.gameState = "menu"
     elif data.gameState == "name":
       for button in data.nameButtons:
         if button.clicked(event.x,event.y):
@@ -580,8 +840,12 @@ def mousePressed(event, data):
     elif data.gameState == "select":
       for button in data.selectButtons:
         if button.clicked(event.x,event.y):
-          msg = "ready LLL\n" 
-          data.me.changeReady(True)
+          if button.name == "ready":
+            msg = "ready LLL\n" 
+            data.me.changeReady(True)
+          elif button.name == "bot":
+            addBot(data)
+        
     elif data.gameState == "end":
       for button in data.endButtons:
         if button.clicked(event.x,event.y):
@@ -637,6 +901,7 @@ def timerFired(canvas,data):
     if data.gameState == "menu":
       pass
     elif data.gameState == "game":
+      moveAllBot(data)
       painterMove(data)
       drawPaper(canvas,data)
       countDownTimer(data)
@@ -645,7 +910,10 @@ def timerFired(canvas,data):
     elif data.gameState == "select":
       if checkAllReady(data):# and len(data.otherStrangers) > 0:
         data.gameState = "game"
+        if data.me.PID == 'A':
+          initBlock(data)
         data.me.initPosition()
+        
         
     responseFromServer(data)
     
@@ -663,6 +931,8 @@ def redrawAll(canvas, data):
       drawMenuWindow(canvas,data)
     elif data.gameState == "name":
       drawChangeName(canvas,data)
+    elif data.gameState == "instruction":
+      drawInstruction(canvas,data)
     elif data.gameState == "select":
       drawMenuWindow(canvas,data)
       drawSelectWindow(canvas,data)
@@ -677,13 +947,13 @@ def redrawAll(canvas, data):
       for powerup in data.powerups:
         powerup.drawPowerUp(canvas,data)
       
-      # draw block
-      data.block.drawBlock(canvas,data)
-      
-      
-      
+      # draw blocks
+      for block in data.blocks:
+        block.drawBlock(canvas,data)
+
       # draw UI
       drawGameUI(canvas,data)
+      
     elif data.gameState == "end":
       drawResult(canvas,data)
     
@@ -736,7 +1006,7 @@ def run(width, height, serverMsg=None, server=None):
         d3 = (time4 - time3) * 1000
         #len_c =len(canvas.find_all())
         
-        print("%.2f(%.2f,%.2f,%.2f)" %(dall,d1,d2,d3))
+       # print("%.2f(%.2f,%.2f,%.2f)" %(dall,d1,d2,d3))
         # pause, then call timerFired again
         canvas.after(int(max(data.timerDelay - dall,0)), timerFiredWrapper, canvas, data)
     # Set up data and call init

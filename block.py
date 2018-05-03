@@ -12,7 +12,7 @@ class Block(object):
             
             return False
         else:
-            print("COLLIDE A BLOCK")
+          #  print("COLLIDE A BLOCK")
             return True
     
     
