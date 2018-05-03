@@ -1,3 +1,8 @@
+##########################
+# Block CLASS
+# by Zhenhao Xiong
+##########################
+
 import math
 
 class Block(object):
@@ -6,6 +11,7 @@ class Block(object):
         self.y = y
         self.size = size
     
+    #return true if (x,y) is inside the block
     def checkInside(self,x,y,size):
         dis = ((self.x - x)**2 + (self.y - y)**2)**0.5
         if dis > size + self.size:

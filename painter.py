@@ -1,6 +1,6 @@
 ##########################
-# DOT CLASS
-# by Kyle Chin
+# Painter CLASS
+# by Zhenhao Xiong
 ##########################
 import math
 import random
@@ -22,10 +22,10 @@ class Painter(object):
         self.percentage = 0
         self.pixels = 0
         
-        self.initPosition()
-        
-        self.isSpeedUp = False
-        self.isSizeUp = False
+        self.initPosition()   #set the init position based on the PID
+         
+        self.isSpeedUp = False  #power up boolean
+        self.isSizeUp = False  #power up boolean
         
         self.speedUpTimer = 10
         self.sizeUpTimer = 10
@@ -34,12 +34,12 @@ class Painter(object):
         self.targetX = 0
         self.targetY = 0
         self.targetDir = 0
-        self.targetCoolDown = 0
+        self.targetCoolDown = 0 # cool down time for adjust target
         
-        #change bot target position
+        
         self.changeTargetPosition()
         
-    
+    #change bot target position and direction
     def changeTargetPosition(self):
         if not self.isBot:
             return
@@ -105,14 +105,9 @@ class Painter(object):
             self.y = 0
             self.changeTargetPosition()
         
-        
-                
-        
-                
-        
         return (self.x,self.y)
     
-    
+    #set the init position and direction based on the PID 
     def initPosition(self):
         disToBorder = 50
         

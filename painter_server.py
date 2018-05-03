@@ -1,7 +1,6 @@
 #############################
-# Sockets Server Demo
-# by Rohan Varma
-# adapted by Kyle Chin
+# Sockets Server for Painter Battle
+# by Zhenhao Xiong
 #############################
 
 import socket
@@ -31,7 +30,7 @@ def handleClient(client, serverChannel, cID, clientele):
         command = msg.split("\n")
     except:
       # we failed
-      print("wtf msg:"+msg)
+      print("fail!! msg:"+msg)
       return
 
 def serverThread(clientele, serverChannel):

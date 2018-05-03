@@ -1,4 +1,7 @@
-
+##########################
+# Click Button CLASS
+# by Zhenhao Xiong
+##########################
 
 class ClickButton(object):
     def __init__(self,x1,y1,x2,y2,name,text,fontSize,fontColor):
@@ -23,7 +26,7 @@ class ClickButton(object):
         canvas.tag_raise(bg)
         data.updateShapes.append(txt)
         canvas.tag_raise(txt)
-    
+    #return true if clicked
     def clicked(self,x,y):
         if self.x1 < x < self.x2 and self.y1 < y < self.y2:
             return True

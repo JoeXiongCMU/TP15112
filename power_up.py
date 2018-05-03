@@ -1,3 +1,7 @@
+##########################
+# Power Up CLASS
+# by Zhenhao Xiong
+##########################
 
 class PowerUp(object):
     def __init__(self,x,y,name):

@@ -1,7 +1,6 @@
 #############################
-# Sockets Client Demo
-# by Rohan Varma
-# adapted by Kyle Chin
+# Painter Battle Client
+# by Zhenhao Xiong
 #############################
 
 import socket
@@ -61,7 +60,7 @@ def drawMenuWindow(canvas,data):
     for button in data.menuButtons:
       button.drawButton(data,canvas)
 
-
+# draw instruction window
 def drawInstruction(canvas,data):
   if data.gameState == "instruction" :
     data.instructionImage = PhotoImage(file=data.imageName)
@@ -367,7 +366,7 @@ def initMenuButton(data):
     data.menuButtons.append(button_play_instruction)
     
 
-
+#generate blocks
 def initBlock(data):
     if data.me.PID == 'A':
       data.blocks = []
@@ -388,6 +387,7 @@ def initBlock(data):
           print ("sending: ", msg,)
           data.server.send(msg.encode())
 
+#check the blocks overlay, return true if overlay
 def checkBlockOverlay(blocks,x,y):
     for block in blocks:
       if distance(block.x,block.y,x,y) < 120:
@@ -407,14 +407,13 @@ def moveAllBot(data):
       player = data.otherStrangers[PID]
       botAI(player)
 
+#the core code of bot AI
 def botAI(player):
   #only control bot move angle
   if not player.isBot:
     return
   dis = distance(player.x,player.y,player.targetX,player.targetY)
   if dis > 80:
-    #go straight toward the target position
-    #targetAngle = math.asin((-player.x+player.targetX)/dis)*180/math.pi
     
     currentAngle = player.dir
    # print("%s:%f,%f"%(player.color,player.targetDir,currentAngle))
@@ -425,13 +424,12 @@ def botAI(player):
         player.turn(-player.turnSpeed/3)
       else:
         player.turn(player.turnSpeed/3)
-    #player.dir = targetAngle
       print("%s TURNING!\n"%player.color)
   else:
     player.changeTargetPosition()
     print("%s CHANGING\n" % player.color)
     
-
+#deal with power up spawning
 def updatePowerUp(data):
    # print(data.powerups)
     
@@ -462,7 +460,8 @@ def updatePowerUp(data):
       updatePowerUpTime(data,player)
     
     updatePowerUpTime(data,data.me)
-    
+ 
+ #update a player's power up remaining time   
 def updatePowerUpTime(data,player):
     #update size up time
     if player.isSizeUp:
@@ -502,6 +501,7 @@ def checkAllReady(data):
       return False
   return True
 
+#add a new bot
 def addBot(data):
     playerNum = len(data.otherStrangers) + 1
     if playerNum >= 4:
@@ -577,7 +577,7 @@ def sendMyPosition(data,rPID):
       print ("sending: ", msg,)
       data.server.send(msg.encode())
 
-
+#move the painter forward and send message to other client
 def painterMove(data):
     msg = ""
     # move myself
@@ -747,8 +747,6 @@ def responseFromServer(data):
 
 
 def initAll(data):
-    
-    
     #use for tech demo, generate powerups in every client
     data.squares = []
     data.squareSize = 10
@@ -806,14 +804,11 @@ def init(data):
     
     data.imageName = "instruction.gif"
     
-    
     #frame = 25
     data.timerDelay = 40
     
     initAll(data)
     
-
-
 def mousePressed(event, data):
     msg = ""
     
@@ -845,15 +840,11 @@ def mousePressed(event, data):
             data.me.changeReady(True)
           elif button.name == "bot":
             addBot(data)
-        
     elif data.gameState == "end":
       for button in data.endButtons:
         if button.clicked(event.x,event.y):
           data.gameState = "menu"
           initAll(data)
-    
-    
-    
     # send the message to other players!
     if (msg != ""):
       print ("sending: ", msg,)
@@ -878,7 +869,6 @@ def keyPressed(event, data):
               data.me.turn(data.me.turnSpeed)
           elif event.keysym == "Right":
               data.me.turn(-data.me.turnSpeed)
-        
       # teleporting
       elif event.keysym == "space":
         # get a random coordinate
@@ -888,9 +878,6 @@ def keyPressed(event, data):
         data.me.teleport(x, y)
         # update the message
         msg = "playerTeleported %d %d\n" % (x, y)
-    
-      
-    
     # send the message to other players!
     if (msg != ""):
       print ("sending: ", msg,)
@@ -913,7 +900,6 @@ def timerFired(canvas,data):
         if data.me.PID == 'A':
           initBlock(data)
         data.me.initPosition()
-        
         
     responseFromServer(data)
     
@@ -957,7 +943,6 @@ def redrawAll(canvas, data):
     elif data.gameState == "end":
       drawResult(canvas,data)
     
-    
 
 def drawPaper(canvas,data):
     data.drawCounter += 1
@@ -971,20 +956,11 @@ def drawPaper(canvas,data):
 
 def run(width, height, serverMsg=None, server=None):
     def redrawAllWrapper(canvas, data):
-        time1 = time.time()
         for i in data.updateShapes:
           canvas.delete(i)
           data.updateShapes.remove(i)
         redrawAll(canvas, data) 
-        time2 = time.time()
-        #for i in data.updateShapes:
-        #canvas.update()
-        time3 = time.time()
-        d1 = (time2 - time1) * 1000
-        d2 = (time3 - time2) * 1000
-       # print("ddd:(%d,%d)" %(d1,d2))
         
-    
     def mousePressedWrapper(event, canvas, data):
         mousePressed(event, data)
        # redrawAllWrapper(canvas, data)
@@ -996,19 +972,12 @@ def run(width, height, serverMsg=None, server=None):
     def timerFiredWrapper(canvas, data):
         time1 = time.time()
         timerFired(canvas,data)
-        time2 = time.time()
-        time3 = time.time()
         redrawAllWrapper(canvas, data)
         time4 = time.time()
         dall = (time4 - time1) * 1000
-        d1 = (time2 - time1) * 1000
-        d2 = (time3 - time2) * 1000
-        d3 = (time4 - time3) * 1000
-        #len_c =len(canvas.find_all())
-        
-       # print("%.2f(%.2f,%.2f,%.2f)" %(dall,d1,d2,d3))
         # pause, then call timerFired again
         canvas.after(int(max(data.timerDelay - dall,0)), timerFiredWrapper, canvas, data)
+        
     # Set up data and call init
     class Struct(object): pass
     data = Struct()
@@ -1022,9 +991,7 @@ def run(width, height, serverMsg=None, server=None):
     root = Tk()
     canvas = Canvas(root, width=data.width, height=data.height)
     canvas.pack()
-    
-   # canvasPaper = Canvas(root, width=data.width, height=data.height)
-   # canvasPaper.pack()
+
     # set up events
     root.bind("<Button-1>", lambda event:
                             mousePressedWrapper(event, canvas, data))
